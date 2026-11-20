@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AGE Capital Structure</title>
+  <meta name="description" content="Capital structure calculator for the AGE case: Campus Deli and Sub Shop, plus Firm U and Firm L.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <p class="kicker">FIN 4150 &middot; AGE case</p>
+    <h1>Capital structure lab</h1>
+    <p class="lede">How borrowing changes return, risk, share price and the cost of capital. Every number is read from the files in <code>data/</code> and worked out in your browser.</p>
+  </header>
+
+  <main>
+    <div id="status" class="note" role="status">Loading the data&hellip;</div>
+    <div id="warnings"></div>
+
+    <section id="firms" hidden>
+      <h2>Firm U and Firm L <span class="tag">question c</span></h2>
+      <p class="hint">Both firms have the same assets and the same EBIT in each kind of year. Firm L borrows; Firm U doesn&rsquo;t.</p>
+      <div class="pair">
+        <div id="firm-u"></div>
+        <div id="firm-l"></div>
+      </div>
+      <h3>Return and risk</h3>
+      <div id="firm-stats"></div>
+    </section>
+
+    <section id="cdss" hidden>
+      <h2>Campus Deli and Sub Shop <span class="tag">question d</span></h2>
+      <div id="cdss-inputs"></div>
+
+      <h3>Case method: buy back at today&rsquo;s price <span class="tag">d(3) and d(4)</span></h3>
+      <p class="hint">CDSS borrows D and buys back shares at today&rsquo;s <span id="p0-text"></span>. Price = EPS / r<sub>s</sub>. WACC uses book weights.</p>
+      <div id="case-table"></div>
+
+      <h3>New-price method: buy back at the price after the announcement</h3>
+      <p class="hint">Value of equity S = net income / r<sub>s</sub>, value of the firm V = S + D, and every share, sold or kept, is worth P = V / n. WACC uses market weights.</p>
+      <div id="newprice-table"></div>
+
+      <h3>What each method points to</h3>
+      <div id="summary"></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Runs entirely in your browser. Nothing you see or load is sent anywhere.</p>
+  </footer>
+
+  <script src="capstruct.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
