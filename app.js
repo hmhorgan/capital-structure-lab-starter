@@ -326,4 +326,12 @@
   }
 
   main();
+
+  // Register the service worker so the app installs and works offline.
+  // Relative path: the site lives at /<repository>/, not the root of a domain.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(err => console.warn('Service worker not registered:', err));
+    });
+  }
 })();

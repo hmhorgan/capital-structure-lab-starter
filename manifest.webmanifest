@@ -1,0 +1,14 @@
+{
+  "name": "AGE Capital Structure Lab",
+  "short_name": "Cap Structure",
+  "description": "Capital structure calculator for the AGE case: Campus Deli and Sub Shop, plus Firm U and Firm L.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f7f5",
+  "theme_color": "#b5121b",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
