@@ -26,7 +26,7 @@
   function table(headers, rows, opts) {
     opts = opts || {};
     const thead = el('thead', null, [el('tr', null, headers.map(h => el('th', { scope: 'col', html: h })))]);
-    const tbody = el('tbody', null, rows.map(r => el('tr', r.class ? { class: r.class } : null,
+    const tbody = el('tbody', null, rows.map(r => el('tr', rowAttrs(r),
       r.cells.map((cell, i) => {
         const tag = i === 0 && opts.rowHeaders ? 'th' : 'td';
         const attrs = { 'data-label': headers[i].replace(/<[^>]+>/g, '') };
@@ -36,6 +36,13 @@
     const t = el('table', { class: opts.stack ? 'stack' : '' }, [thead, tbody]);
     if (opts.caption) t.prepend(el('caption', null, [opts.caption]));
     return el('div', { class: 'table-wrap' }, [t]);
+  }
+
+  function rowAttrs(r) {
+    const a = {};
+    if (r.class) a.class = r.class;
+    if (r.debt !== undefined) a['data-debt'] = String(r.debt);
+    return a;
   }
 
   async function loadCSV(path) {
@@ -56,9 +63,9 @@
     if (years.length === 3) {
       const order = years.map((y, i) => i).sort((a, b) => years[a].ebit - years[b].ebit);
       const names = [];
-      names[order[0]] = 'Low EBIT';
-      names[order[1]] = 'Middle';
-      names[order[2]] = 'High EBIT';
+      names[order[0]] = 'Bad year';
+      names[order[1]] = 'Normal year';
+      names[order[2]] = 'Good year';
       return names;
     }
     return years.map((y, i) => 'Year type ' + (i + 1));
@@ -120,7 +127,7 @@
     const headers = ['Debt', 'r<sub>d</sub>', 'r<sub>s</sub>', 'Net income', 'Shares repurchased',
       'Shares remaining', 'EPS', 'TIE', 'Share price', 'WACC (book weights)'];
     const rows = a.rows.map(r => ({
-      class: r.debt === best ? 'best' : '',
+      class: r.debt === best ? 'best' : '', debt: r.debt,
       cells: [C.money(r.debt), C.pct(r.costOfDebt), C.pct(r.costOfEquity), C.money(r.netIncome),
         C.decimal2(r.caseMethod.repurchased), C.decimal2(r.caseMethod.remaining),
         C.cents(r.caseMethod.eps), C.times(r.tie), C.cents(r.caseMethod.price), C.pct(r.caseMethod.wacc)]
@@ -133,7 +140,7 @@
     const headers = ['Debt', 'r<sub>d</sub>', 'r<sub>s</sub>', 'Value of equity S', 'Value of firm V',
       'Share price P', 'Shares repurchased', 'Shares remaining', 'EPS', 'TIE', 'WACC (market weights)'];
     const rows = a.rows.map(r => ({
-      class: r.debt === best ? 'best' : '',
+      class: r.debt === best ? 'best' : '', debt: r.debt,
       cells: [C.money(r.debt), C.pct(r.costOfDebt), C.pct(r.costOfEquity),
         C.money(r.newPrice.equityValue), C.money(r.newPrice.firmValue), C.cents(r.newPrice.price),
         C.decimal2(r.newPrice.repurchased), C.decimal2(r.newPrice.remaining),
@@ -159,6 +166,107 @@
       ? el('p', { class: 'hint' }, ['Both prices and both WACCs point to the same amount of debt. The highlighted rows above have the highest price.'])
       : el('p', { class: 'note warn' }, ['The two methods or the two sets of weights don’t all point to the same amount of debt, so the app doesn’t pick one. Compare the rows above.']);
     return el('div', null, [list, note]);
+  }
+
+  // ---------- Levers ----------
+
+  function stakeCell(m) {
+    if (m.status === 'ok') return C.pct(m.value);
+    if (m.status === 'all') return C.pct(1) + ' *';
+    if (m.status === 'sell') return 'Would have to sell';
+    return C.NA;
+  }
+
+  // The two buyback methods side by side at one amount of debt.
+  function cdssReadout(a, r) {
+    const A = r.caseMethod, B = r.newPrice;
+    const head = ['At ' + C.money(r.debt), 'A. Buy back at ' + C.cents(a.P0), 'B. Buy back at the new price'];
+    const rows = [
+      ['Share price', C.cents(A.price), C.cents(B.price)],
+      ['Shares repurchased', C.decimal2(A.repurchased), C.decimal2(B.repurchased)],
+      ['Shares remaining', C.decimal2(A.remaining), C.decimal2(B.remaining)],
+      ['EPS', C.cents(A.eps), C.cents(B.eps)],
+      ['Dividends per share', C.cents(A.dps), C.cents(B.dps)],
+      ['TIE', C.times(r.tie), C.times(r.tie)],
+      ['WACC (A: book weights, B: market weights)', C.pct(A.wacc), C.pct(B.wacc)],
+      ['Management’s share of the company', stakeCell(A.management), stakeCell(B.management)]
+    ].map(cells => ({ cells }));
+    const facts = el('p', { class: 'hint' }, [
+      'r_d ' + C.pct(r.costOfDebt) + ' · r_s ' + C.pct(r.costOfEquity) +
+      ' · interest ' + C.money(r.interest) + ' · net income ' + C.money(r.netIncome) +
+      ' · dividends per share = EPS, because CDSS pays out all its earnings'
+    ]);
+    const notes = [];
+    [['A', A.management], ['B', B.management]].forEach(([col, m]) => {
+      if (m.status === 'all') notes.push(el('p', { class: 'note' }, ['* Column ' + col + ': the buyback takes every outside share, so management would own 100% and no outside shareholders would be left.']));
+      if (m.status === 'sell') notes.push(el('p', { class: 'note warn' }, ['⚠ Column ' + col + ': the buyback needs more shares than outside investors own, so management would have to sell some of its own.']));
+    });
+    return el('div', null, [facts, table(head, rows, { rowHeaders: true, caption: 'Both buyback methods at ' + C.money(r.debt) + ' of debt' }), ...notes]);
+  }
+
+  function setupCdssSlider(a) {
+    const slider = document.getElementById('cdss-debt');
+    const out = document.getElementById('cdss-debt-out');
+    const readout = document.getElementById('cdss-readout');
+    const noteBox = document.getElementById('cdss-button-note');
+    const ticks = document.getElementById('cdss-ticks');
+    slider.max = String(a.rows.length - 1);
+    ticks.innerHTML = '';
+    a.rows.forEach(r => ticks.append(el('span', null, [C.money(r.debt / 1000) + 'k'])));
+
+    function show(i) {
+      const r = a.rows[i];
+      slider.value = String(i);
+      out.textContent = C.money(r.debt);
+      slider.setAttribute('aria-valuetext', C.money(r.debt));
+      readout.innerHTML = '';
+      readout.append(cdssReadout(a, r));
+      document.querySelectorAll('#cdss tr[data-debt]').forEach(tr =>
+        tr.classList.toggle('current', Number(tr.dataset.debt) === r.debt));
+    }
+    function goTo(choice) {
+      noteBox.innerHTML = '';
+      if (choice.debt === null) return;
+      if (choice.note) noteBox.append(el('p', { class: 'note' }, [choice.note]));
+      show(a.rows.findIndex(r => r.debt === choice.debt));
+    }
+
+    slider.oninput = () => { noteBox.innerHTML = ''; show(Number(slider.value)); };
+    document.getElementById('btn-best').onclick = () =>
+      goTo(C.chooseDebt(a.summary.casePrice, a.summary.newPrice, 'highest share price'));
+    document.getElementById('btn-eps').onclick = () =>
+      goTo(C.chooseDebt(a.summary.caseEps, a.summary.newEps, 'highest EPS'));
+
+    const start = a.rows.findIndex(r => r.debt === 0);
+    show(start >= 0 ? start : 0);
+  }
+
+  function setupFirmSlider(scenarios, firms, tax, u) {
+    const slider = document.getElementById('firm-l-debt');
+    const out = document.getElementById('firm-l-debt-out');
+    const steps = C.sliderSteps(firms.slider_max, firms.slider_step);
+    slider.min = '0';
+    slider.max = String(steps[steps.length - 1]);
+    slider.step = String(firms.slider_step);
+    document.getElementById('firm-l-rate-note').textContent =
+      'The interest rate is held at ' + C.pct(firms.interest_rate) + ' at every amount of debt, the case’s rate. ' +
+      'So the slider shows what debt does to Firm L’s return and risk, not how lenders would respond to more borrowing.';
+
+    function show(debt) {
+      slider.value = String(debt);
+      out.textContent = C.money(debt);
+      slider.setAttribute('aria-valuetext', C.money(debt));
+      const l = C.firmExample(scenarios, { assets: firms.total_assets, debt, rate: firms.interest_rate, tax });
+      const box = document.getElementById('firm-l');
+      box.innerHTML = '';
+      box.append(firmTable('Firm L', l));
+      const stats = document.getElementById('firm-stats');
+      stats.innerHTML = '';
+      stats.append(firmStats(u, l));
+    }
+    slider.oninput = () => show(Number(slider.value));
+    document.getElementById('btn-case').onclick = () => show(firms.firm_l_debt);
+    show(firms.firm_l_debt);
   }
 
   // ---------- Load everything and draw ----------
@@ -192,11 +300,9 @@
 
       // Firm U and Firm L
       const u = C.firmExample(scenarios, { assets: firms.total_assets, debt: 0, rate: firms.interest_rate, tax });
-      const l = C.firmExample(scenarios, { assets: firms.total_assets, debt: firms.firm_l_debt, rate: firms.interest_rate, tax });
       if (Math.abs(u.probabilitySum - 1) > 1e-9) warnings.push('The probabilities in ebit_scenarios.csv add up to ' + u.probabilitySum + ', not 1.');
       document.getElementById('firm-u').append(firmTable('Firm U', u));
-      document.getElementById('firm-l').append(firmTable('Firm L', l));
-      document.getElementById('firm-stats').append(firmStats(u, l));
+      setupFirmSlider(scenarios, firms, tax, u);
       document.getElementById('firms').hidden = false;
 
       // CDSS
@@ -207,6 +313,7 @@
       document.getElementById('case-table').append(caseTable(a));
       document.getElementById('newprice-table').append(newPriceTable(a));
       document.getElementById('summary').append(summaryBox(a));
+      setupCdssSlider(a);
       document.getElementById('cdss').hidden = false;
 
       showWarnings(warnings);

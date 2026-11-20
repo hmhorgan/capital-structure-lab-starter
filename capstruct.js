@@ -155,6 +155,17 @@
 
     const sorted = schedule.slice().sort((a, b) => a.debt - b.debt);
 
+    // Management keeps all its shares, so its stake grows as others sell.
+    const mgmt = c.management_share;
+    const outsideShares = (1 - mgmt) * n;
+    function stake(repurchased, remaining) {
+      if (mgmt === null || mgmt === undefined) return { value: null, status: 'missing' };
+      const tol = 1e-9 * n;
+      if (Math.abs(repurchased - outsideShares) <= tol) return { value: 1, status: 'all' };
+      if (repurchased > outsideShares) return { value: null, status: 'sell' };
+      return { value: (mgmt * n) / remaining, status: 'ok' };
+    }
+
     const rows = sorted.map(r => {
       const D = r.debt;
       const rd = r.cost_of_debt;   // null at $0
@@ -194,12 +205,14 @@
         interest, netIncome, tie,
         caseMethod: {
           repurchased: caseRepurchased, remaining: caseRemaining,
-          eps: caseEps, dps: caseEps, price: casePrice, wacc: bookWacc
+          eps: caseEps, dps: caseEps, price: casePrice, wacc: bookWacc,
+          management: stake(caseRepurchased, caseRemaining)
         },
         newPrice: {
           equityValue: S, firmValue: V, price: P,
           repurchased: npRepurchased, remaining: npRemaining,
           eps: npEps, dps: npEps, wacc: marketWacc,
+          management: stake(npRepurchased, npRemaining),
           epsCheck, waccCheck
         }
       };
@@ -250,11 +263,33 @@
     return s;
   }
 
+  // Where a button should move the CDSS slider. byCase / byNew are the debt
+  // amounts each buyback method picks. If they agree, go there; if not, go to
+  // the case method's amount and return a note naming both.
+  function chooseDebt(byCase, byNew, what) {
+    if (byCase === null && byNew === null) return { debt: null, note: null };
+    if (byCase === null) return { debt: byNew, note: null };
+    if (byNew === null || byCase === byNew) return { debt: byCase, note: null };
+    return {
+      debt: byCase,
+      note: 'The ' + what + ' is at ' + money(byCase) + ' under the case method (buy back at today’s price) but at ' +
+        money(byNew) + ' when shares are bought back at the new price. The slider went to the case method’s ' + money(byCase) + '.'
+    };
+  }
+
+  // Debt amounts for the Firm L slider: 0, step, 2 x step, ... up to max.
+  function sliderSteps(max, step) {
+    const out = [];
+    if (!(step > 0)) return [0];
+    for (let i = 0; i * step <= max + 1e-9; i++) out.push(i * step);
+    return out;
+  }
+
   const CapStruct = {
     parseCSV, toNumber, itemsToObject,
     roundHalfUp, money, cents, pct, times, decimal2, deduction, NA,
     expected, stdDev,
-    firmExample, cdssEbit, cdssAnalysis, summarize
+    firmExample, cdssEbit, cdssAnalysis, summarize, chooseDebt, sliderSteps
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = CapStruct;

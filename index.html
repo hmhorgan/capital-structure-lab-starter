@@ -21,6 +21,12 @@
     <section id="firms" hidden>
       <h2>Firm U and Firm L <span class="tag">question c</span></h2>
       <p class="hint">Both firms have the same assets and the same EBIT in each kind of year. Firm L borrows; Firm U doesn&rsquo;t.</p>
+      <div class="lever">
+        <label for="firm-l-debt">Firm L&rsquo;s debt: <output id="firm-l-debt-out"></output></label>
+        <input type="range" id="firm-l-debt">
+        <div class="buttons"><button type="button" id="btn-case">Case</button></div>
+        <p class="hint" id="firm-l-rate-note"></p>
+      </div>
       <div class="pair">
         <div id="firm-u"></div>
         <div id="firm-l"></div>
@@ -32,6 +38,20 @@
     <section id="cdss" hidden>
       <h2>Campus Deli and Sub Shop <span class="tag">question d</span></h2>
       <div id="cdss-inputs"></div>
+
+      <h3>Move CDSS&rsquo;s debt</h3>
+      <div class="lever">
+        <label for="cdss-debt">Amount borrowed: <output id="cdss-debt-out"></output></label>
+        <input type="range" id="cdss-debt" min="0" step="1">
+        <div class="ticks" id="cdss-ticks" aria-hidden="true"></div>
+        <div class="buttons">
+          <button type="button" id="btn-best">Best price</button>
+          <button type="button" id="btn-eps">Highest EPS</button>
+        </div>
+        <p class="hint">The slider stops only at the banker&rsquo;s amounts. The banker gave no costs in between.</p>
+        <div id="cdss-button-note"></div>
+      </div>
+      <div id="cdss-readout"></div>
 
       <h3>Case method: buy back at today&rsquo;s price <span class="tag">d(3) and d(4)</span></h3>
       <p class="hint">CDSS borrows D and buys back shares at today&rsquo;s <span id="p0-text"></span>. Price = EPS / r<sub>s</sub>. WACC uses book weights.</p>
